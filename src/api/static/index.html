@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DriveGuard — Digital Twin Diagnostics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14171a;
+    --panel: #1b1f24;
+    --panel-border: #2a2f36;
+    --cyan: #2dd4bf;
+    --amber: #ffb020;
+    --red: #ff5c5c;
+    --text: #e8eaed;
+    --muted: #8b94a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0 0 6px;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+  }
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    margin-left: 14px;
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 24px 32px 48px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 4px;
+  }
+  .panel .desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+
+  .sample-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .sample-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .sample-btn:hover { border-color: var(--cyan); color: var(--text); }
+  .sample-btn.selected { border-color: var(--cyan); color: var(--cyan); }
+
+  .run-btn {
+    background: var(--cyan);
+    color: #06201c;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    padding: 10px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    transition: opacity 0.15s;
+  }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  canvas {
+    width: 100%;
+    height: 90px;
+    background: #101317;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    margin-bottom: 16px;
+  }
+
+  .result { min-height: 20px; }
+  .pred-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .conf-bar-track {
+    background: #101317;
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .conf-bar-fill { height: 100%; transition: width 0.4s ease; }
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 12px 0 6px;
+  }
+  .why-text, .rootcause-box p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .rootcause-box {
+    background: #101317;
+    border-left: 3px solid var(--amber);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-top: 4px;
+  }
+  .rootcause-box .action {
+    color: var(--cyan);
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .placeholder {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+  .error-box {
+    color: var(--red);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  footer a { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DRIVEGUARD <span class="live-badge"><span class="live-dot"></span>LIVE MODEL</span></h1>
+  <p>Automotive & EV predictive maintenance — real sensor data, real predictions, traced to root cause via a knowledge graph.</p>
+</header>
+
+<main>
+
+  <section class="panel" id="panel-bearing">
+    <h2>Bearing</h2>
+    <p class="desc">Drive-end vibration signal. Detects rolling-element bearing faults before failure.</p>
+    <div class="sample-row" data-subsystem="bearing">
+      <button class="sample-btn" data-sample="normal">Normal</button>
+      <button class="sample-btn" data-sample="inner_race">Inner Race</button>
+      <button class="sample-btn" data-sample="ball">Ball</button>
+      <button class="sample-btn" data-sample="outer_race">Outer Race</button>
+    </div>
+    <button class="run-btn" data-subsystem="bearing" disabled>Run diagnosis</button>
+    <canvas id="canvas-bearing"></canvas>
+    <div class="result" id="result-bearing"><p class="placeholder">Select a sample above, then run diagnosis.</p></div>
+  </section>
+
+  <section class="panel" id="panel-motor">
+    <h2>Motor</h2>
+    <p class="desc">Rotor vibration + acoustic signal. Detects rotor imbalance in induction motors.</p>
+    <div class="sample-row" data-subsystem="motor">
+      <button class="sample-btn" data-sample="normal">Normal</button>
+      <button class="sample-btn" data-sample="imbalance">Imbalance</button>
+    </div>
+    <button class="run-btn" data-subsystem="motor" disabled>Run diagnosis</button>
+    <canvas id="canvas-motor"></canvas>
+    <div class="result" id="result-motor"><p class="placeholder">Select a sample above, then run diagnosis.</p></div>
+  </section>
+
+  <section class="panel" id="panel-battery">
+    <h2>Battery</h2>
+    <p class="desc">Discharge voltage curve. Estimates EV battery health state from capacity fade.</p>
+    <div class="sample-row" data-subsystem="battery">
+      <button class="sample-btn" data-sample="healthy">Healthy</button>
+      <button class="sample-btn" data-sample="degrading">Degrading</button>
+      <button class="sample-btn" data-sample="near_eol">Near End-of-Life</button>
+    </div>
+    <button class="run-btn" data-subsystem="battery" disabled>Run diagnosis</button>
+    <canvas id="canvas-battery"></canvas>
+    <div class="result" id="result-battery"><p class="placeholder">Select a sample above, then run diagnosis.</p></div>
+  </section>
+
+</main>
+
+<footer>
+  Built with PyTorch + PennyLane + Neo4j + FastAPI · <a href="/docs">API docs</a> · <a href="https://github.com/erajamurugan-s1011/DriveGuard" target="_blank">GitHub</a>
+</footer>
+
+<script>
+const state = { bearing: null, motor: null, battery: null };
+const colorMap = {
+  normal: 'var(--cyan)', healthy: 'var(--cyan)',
+  inner_race: 'var(--amber)', ball: 'var(--amber)', outer_race: 'var(--amber)',
+  imbalance: 'var(--amber)', degrading: 'var(--amber)',
+  near_eol: 'var(--red)'
+};
+
+function drawWaveform(canvasId, values) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width, h = rect.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max - min) || 1;
+  ctx.strokeStyle = '#2dd4bf';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 10) - 5;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+async function loadSample(subsystem, sampleName) {
+  const res = await fetch(`/static/samples/${subsystem}_${sampleName}.json`);
+  return res.json();
+}
+
+function setupSampleButtons(subsystem) {
+  const row = document.querySelector(`.sample-row[data-subsystem="${subsystem}"]`);
+  const runBtn = document.querySelector(`.run-btn[data-subsystem="${subsystem}"]`);
+  row.querySelectorAll('.sample-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      row.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const data = await loadSample(subsystem, btn.dataset.sample);
+      state[subsystem] = data;
+      runBtn.disabled = false;
+
+      const canvasId = `canvas-${subsystem}`;
+      if (subsystem === 'bearing') drawWaveform(canvasId, data.signal.slice(0, 500));
+      else if (subsystem === 'motor') drawWaveform(canvasId, data.signal.slice(0, 500).map(row => row[0]));
+      else drawWaveform(canvasId, data.features.slice(10)); // 16 voltage curve points
+    });
+  });
+}
+
+function renderResult(subsystem, result) {
+  const el = document.getElementById(`result-${subsystem}`);
+  const color = colorMap[result.predicted_label] || 'var(--cyan)';
+  const confPct = Math.round(result.confidence * 100);
+
+  let whyHtml = '';
+  if (result.model_explanation.type === 'saliency_timestep') {
+    whyHtml = `<p class="why-text">Prediction driven most by signal activity around timestep <b>${result.model_explanation.peak_timestep}</b> of 2048.</p>`;
+  } else {
+    const top = result.model_explanation.top_features.slice(0, 3).map(f => f[0]).join(', ');
+    whyHtml = `<p class="why-text">Prediction driven most by: <b>${top}</b>.</p>`;
+  }
+
+  let rootHtml = '<p class="placeholder">No root-cause mapping for this state.</p>';
+  if (result.root_cause) {
+    rootHtml = `
+      <div class="rootcause-box">
+        <p><b>${result.root_cause.component}</b> — via ${result.root_cause.sensor}</p>
+        <p>${result.root_cause.root_cause}</p>
+        <p class="action">→ ${result.root_cause.recommended_action}</p>
+      </div>`;
+  }
+
+  let mileageHtml = '';
+  if (result.estimated_mileage_km) {
+    mileageHtml = `<p class="section-label">Estimated mileage (approx.)</p>
+      <p class="why-text">~${result.estimated_mileage_km.value.toLocaleString()} km <span style="color:var(--muted); font-size:11px;">(${result.estimated_mileage_km.note})</span></p>`;
+  }
+
+  el.innerHTML = `
+    <div class="pred-label" style="color:${color}">${result.predicted_label.replace(/_/g, ' ')}</div>
+    <div class="conf-bar-track"><div class="conf-bar-fill" style="width:${confPct}%; background:${color}"></div></div>
+    <p class="section-label">Confidence: ${confPct}%</p>
+    <p class="section-label">Why</p>
+    ${whyHtml}
+    <p class="section-label">Root cause</p>
+    ${rootHtml}
+    ${mileageHtml}
+  `;
+}
+
+async function runDiagnosis(subsystem) {
+  const runBtn = document.querySelector(`.run-btn[data-subsystem="${subsystem}"]`);
+  const el = document.getElementById(`result-${subsystem}`);
+  runBtn.disabled = true;
+  runBtn.textContent = 'Running...';
+  el.innerHTML = '<p class="placeholder">Contacting model...</p>';
+
+  try {
+    const payload = subsystem === 'battery'
+      ? { features: state.battery.features, cycle_number: state.battery.cycle_number }
+      : { signal: state[subsystem].signal };
+
+    const res = await fetch(`/predict/${subsystem}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const result = await res.json();
+    renderResult(subsystem, result);
+  } catch (err) {
+    el.innerHTML = `<p class="error-box">Diagnosis failed. This service runs on a free-tier host that pauses after inactivity — if this is the first request in a while, wait 30–60 seconds and try again.</p>`;
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run diagnosis';
+  }
+}
+
+['bearing', 'motor', 'battery'].forEach(subsystem => {
+  setupSampleButtons(subsystem);
+  document.querySelector(`.run-btn[data-subsystem="${subsystem}"]`)
+    .addEventListener('click', () => runDiagnosis(subsystem));
+});
+</script>
+
+</body>
+</html>
