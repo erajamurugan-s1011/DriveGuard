@@ -85,7 +85,8 @@ def query_root_cause(fault_name, subsystem):
             OPTIONAL MATCH (component:DG_Component)-[:DG_HAS_FAULT_MODE]->(fault)
             OPTIONAL MATCH (fault)-[:DG_CAUSED_BY]->(cause:DG_RootCause)
             RETURN component.name AS component, sensor.id AS sensor, sig.feature AS feature,
-                   cause.description AS root_cause, cause.recommended_action AS recommended_action
+                   sig.band AS band, cause.description AS root_cause,
+                   cause.recommended_action AS recommended_action
             LIMIT 1
         """, fault_id=fault_id)
         record = result.single()
