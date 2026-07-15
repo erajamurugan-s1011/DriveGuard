@@ -13,28 +13,26 @@ Rather than a black-box "fault detected" alert, DriveGuard returns:
 
 ## Architecture
 
-Sensor data (vibration / acoustic / voltage-temperature)
-│
-▼
-Hybrid CNN + Quantum model (PyTorch + PennyLane)
-
-CNN encoder: raw waveform (bearing, motor)
-Dense encoder: engineered features (battery)
-│
-▼
-Prediction + Explainability
-Grad-CAM (bearing, motor) — which timestep drove the prediction
-Gradient×Input (battery) — which feature drove the prediction
-│
-▼
-Neo4j Knowledge Graph traversal
-Sensor → Component → FaultType → RootCause
-│
-▼
-FastAPI response: prediction + confidence + explanation + root cause + recommended action
+    Sensor data (vibration / acoustic / voltage-temperature)
+            │
+            ▼
+    Hybrid CNN + Quantum model (PyTorch + PennyLane)
+       - CNN encoder: raw waveform (bearing, motor)
+       - Dense encoder: engineered features (battery)
+            │
+            ▼
+    Prediction + Explainability
+       - Grad-CAM (bearing, motor) — which timestep drove the prediction
+       - Gradient×Input (battery) — which feature drove the prediction
+            │
+            ▼
+    Neo4j Knowledge Graph traversal
+       Sensor → Component → FaultType → RootCause
+            │
+            ▼
+    FastAPI response: prediction + confidence + explanation + root cause + recommended action
 
 Each subsystem is trained independently (an earlier shared-weight multi-task design was tried and abandoned — see *Engineering decisions* below) but shares the same reusable Hybrid CNN-Quantum architecture template, and all three are tied together at the knowledge-graph layer.
-
 ## Results
 
 | Subsystem | Dataset | Classes | Val samples | Accuracy | Macro F1 | Inference latency (CPU) |
